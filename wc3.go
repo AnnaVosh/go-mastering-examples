@@ -34,27 +34,26 @@ func main() {
 	}
 	defer file.Close()
 
-	outputChan := make(chan Result3)
+	outputChan := make(chan Result3, workers)
 
 	ctx := context.Background()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		err = sem.Acquire(ctx, 1)
 		if err != nil {
-			fmt.Println(err)
-			break
+			fmt.Println("Cannot acquire semaphore:", err)
+			os.Exit(1)
 		}
 
-		go func(line string) {
+		go func(line string, ch chan<- Result3) {
 			defer sem.Release(1)
 
-			outputChan <- Result3{
+			ch <- Result3{
 				lines:      1,
 				characters: len(line),
 				words:      strings.Count(line, " "),
 			}
-
-		}(scanner.Text())
+		}(scanner.Text(), outputChan)
 	}
 
 	err = sem.Acquire(ctx, int64(workers))
